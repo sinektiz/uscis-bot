@@ -61,7 +61,26 @@ async def consultar():
 
         # esperar input aparecer (ou fallback)
         try:
-            await page.wait_for_selector("input[name='appReceiptNum']", timeout=15000)
+            # aguarda carregamento completo + possíveis challenges
+await page.wait_for_timeout(8000)
+
+html = await page.content()
+
+print(f"[LOG] HTML length: {len(html)}")
+
+# detecção de bloqueio
+if "blocked" in html.lower() or "captcha" in html.lower():
+    raise Exception("Bloqueado pelo Cloudflare")
+
+# tenta encontrar input manualmente
+if "appReceiptNum" not in html:
+    raise Exception("Página carregada sem formulário (bloqueio silencioso)")
+
+# agora sim espera o campo real
+await page.wait_for_selector("input[name='appReceiptNum']", timeout=10000)
+await page.mouse.move(100, 200)
+await page.wait_for_timeout(2000)
+await page.mouse.move(300, 400)
         except:
             # possível bloqueio
             html = await page.content()
