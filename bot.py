@@ -8,6 +8,7 @@ import random
 CASE_NUMBER = os.getenv("CASE_NUMBER")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+PROXY_SERVER = os.getenv("PROXY_SERVER")
 
 URL = "https://egov.uscis.gov/casestatus/mycasestatus.do"
 ARQUIVO_STATUS = "status.txt"
