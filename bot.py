@@ -58,12 +58,16 @@ def obter_status():
                         "username": PROXY_USERNAME,
                         "password": PROXY_PASSWORD,
                     },
-                    args=["--ignore-certificate-errors"]
+                    args=[
+                        "--ignore-certificate-errors",
+                        "--disable-blink-features=AutomationControlled"
+                    ]
                 )
 
                 context = browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-                    ignore_https_errors=True
+                    ignore_https_errors=True,
+                    viewport={"width": 1366, "height": 768}
                 )
 
                 page = context.new_page()
@@ -72,10 +76,22 @@ def obter_status():
 
                 page.goto(
                     "https://egov.uscis.gov/casestatus/mycasestatus.do",
-                    timeout=60000
+                    timeout=60000,
+                    wait_until="domcontentloaded"
                 )
 
-                # campo correto
+                # espera carregar JS
+                page.wait_for_load_state("networkidle")
+
+                time.sleep(5)  # delay humano
+
+                # DEBUG: salva HTML
+                html = page.content()
+                log(f"HTML length: {len(html)}")
+
+                if "#receipt_number" not in html:
+                    raise Exception("Página carregada sem formulário (possível bloqueio)")
+
                 page.wait_for_selector("#receipt_number", timeout=60000)
 
                 log("Digitando protocolo...")
@@ -83,7 +99,8 @@ def obter_status():
 
                 page.click("#caseStatusSearchBtn")
 
-                # espera resultado
+                page.wait_for_load_state("networkidle")
+
                 page.wait_for_selector(".rows.text-center", timeout=60000)
 
                 status = page.inner_text(".rows.text-center")
@@ -98,7 +115,7 @@ def obter_status():
 
         except Exception as e:
             log(f"Erro tentativa {tentativa+1}: {e}")
-            time.sleep(5)
+            time.sleep(10)
 
     raise Exception("Falha após 3 tentativas")
 
