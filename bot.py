@@ -10,7 +10,7 @@ CASE_NUMBER = os.getenv("CASE_NUMBER")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-PROXY_SERVER = os.getenv("PROXY_SERVER")  # http://brd.superproxy.io:33335
+PROXY_SERVER = os.getenv("PROXY_SERVER")
 PROXY_USERNAME = os.getenv("PROXY_USERNAME")
 PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
 
@@ -23,28 +23,28 @@ def enviar(msg):
 async def consultar():
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-    headless=True,
-    args=[
-        "--no-sandbox",
-        "--disable-blink-features=AutomationControlled",
-        "--disable-dev-shm-usage",
-        "--ignore-certificate-errors"  # 👈 reforço extra
-    ],
-    proxy={
-        "server": PROXY_SERVER,
-        "username": PROXY_USERNAME,
-        "password": PROXY_PASSWORD
-    }
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+                "--ignore-certificate-errors"
+            ],
+            proxy={
+                "server": PROXY_SERVER,
+                "username": PROXY_USERNAME,
+                "password": PROXY_PASSWORD
+            }
         )
 
         context = await browser.new_context(
-    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-    locale="en-US",
-    viewport={"width": 1366, "height": 768},
-    ignore_https_errors=True   # 👈 ESSA LINHA RESOLVE
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+            locale="en-US",
+            viewport={"width": 1366, "height": 768},
+            ignore_https_errors=True
         )
 
-        # stealth: remove webdriver flag
+        # stealth
         await context.add_init_script("""
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
@@ -55,46 +55,37 @@ async def consultar():
 
         print("[LOG] Acessando USCIS...")
 
-        await page.goto("https://egov.uscis.gov/casestatus/mycasestatus.do",
-                        wait_until="domcontentloaded",
-                        timeout=60000)
+        await page.goto(
+            "https://egov.uscis.gov/casestatus/mycasestatus.do",
+            wait_until="domcontentloaded",
+            timeout=60000
+        )
 
-        # esperar input aparecer (ou fallback)
-        try:
-            # aguarda carregamento completo + possíveis challenges
-await page.wait_for_timeout(8000)
+        # ⬇️ BLOCO CORRIGIDO
+        await page.wait_for_timeout(8000)
 
-html = await page.content()
+        html = await page.content()
+        print(f"[LOG] HTML length: {len(html)}")
 
-print(f"[LOG] HTML length: {len(html)}")
+        if "blocked" in html.lower() or "captcha" in html.lower():
+            await browser.close()
+            raise Exception("Bloqueado pelo Cloudflare")
 
-# detecção de bloqueio
-if "blocked" in html.lower() or "captcha" in html.lower():
-    raise Exception("Bloqueado pelo Cloudflare")
+        if "appReceiptNum" not in html:
+            await browser.close()
+            raise Exception("Página carregada sem formulário (bloqueio silencioso)")
 
-# tenta encontrar input manualmente
-if "appReceiptNum" not in html:
-    raise Exception("Página carregada sem formulário (bloqueio silencioso)")
+        # agora sim espera o campo
+        await page.wait_for_selector("input[name='appReceiptNum']", timeout=10000)
 
-# agora sim espera o campo real
-await page.wait_for_selector("input[name='appReceiptNum']", timeout=10000)
-await page.mouse.move(100, 200)
-await page.wait_for_timeout(2000)
-await page.mouse.move(300, 400)
-        except:
-            # possível bloqueio
-            html = await page.content()
-            if "blocked" in html.lower():
-                raise Exception("Bloqueado pelo site (Cloudflare)")
-            else:
-                raise Exception("Página carregou mas input não apareceu")
+        # simula humano
+        await page.mouse.move(100, 200)
+        await page.wait_for_timeout(2000)
 
-        # digitar protocolo
         await page.fill("input[name='appReceiptNum']", CASE_NUMBER)
         await page.click("input[type='submit']")
 
-        # esperar resultado
-        await page.wait_for_selector("h1", timeout=20000)
+        await page.wait_for_timeout(5000)
 
         titulo = await page.locator("h1").inner_text()
         texto = await page.locator("p").first.inner_text()
