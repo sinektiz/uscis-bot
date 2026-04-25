@@ -1,6 +1,7 @@
 import requests
 import os
 from datetime import datetime
+from bs4 import BeautifulSoup
 
 CASE_NUMBER = os.getenv("CASE_NUMBER")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -15,22 +16,29 @@ def enviar(msg):
 def obter_status():
     url = "https://egov.uscis.gov/casestatus/mycasestatus.do"
 
-    resp = requests.post(url, data={
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    data = {
         "appReceiptNum": CASE_NUMBER
-    }, headers={
-        "User-Agent": "Mozilla/5.0"
-    })
+    }
 
-    html = resp.text
+    resp = requests.post(url, headers=headers, data=data, timeout=30)
 
-    # captura simples do status
-    import re
-    match = re.search(r'<div class="rows text-center">(.*?)</div>', html, re.S)
+    soup = BeautifulSoup(resp.text, "html.parser")
 
-    if not match:
-        raise Exception("Status não encontrado")
+    # Título do status (ex: Case Was Received)
+    titulo = soup.find("h1")
 
-    return match.group(1).strip()
+    # Texto explicativo
+    texto = soup.find("p")
+
+    if not titulo or not texto:
+        raise Exception("Não conseguiu localizar o status (possível bloqueio ou mudança no site)")
+
+    return f"{titulo.get_text(strip=True)}\n\n{texto.get_text(strip=True)}"
 
 
 def main():
@@ -40,7 +48,7 @@ def main():
         status = obter_status()
         enviar(f"📌 USCIS Status ({agora})\n\n{status}")
     except Exception as e:
-        enviar(f"⚠️ Erro:\n{e}")
+        enviar(f"⚠️ Erro ao consultar USCIS:\n{e}")
 
 
 if __name__ == "__main__":
