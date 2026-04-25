@@ -50,7 +50,11 @@ def obter_status():
             with sync_playwright() as p:
                 browser = p.chromium.launch(
                     headless=True,
-                    proxy={"server": PROXY_SERVER}
+                    proxy={
+                        "server": PROXY_SERVER,
+                        "username": os.getenv("PROXY_USERNAME"),
+                        "password": os.getenv("PROXY_PASSWORD"),
+                    }
                 )
 
                 context = browser.new_context(
