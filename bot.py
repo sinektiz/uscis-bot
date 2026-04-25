@@ -60,23 +60,8 @@ def salvar_status(status):
     open(ARQUIVO_STATUS, "w").write(status)
 
 def main():
-    agora = datetime.now().strftime("%d/%m %H:%M")
-
-    try:
-        status = obter_status()
-    except Exception as e:
-        enviar_telegram(f"Erro USCIS:\n{e}")
-        return
-
-    antigo = carregar_status()
-
-    mensagem = f"📌 Status ({agora})\n\n{status}"
-
-    if antigo and status != antigo:
-        mensagem = f"🚨 MUDOU!\n\n{status}"
-
-    enviar_telegram(mensagem)
-    salvar_status(status)
+    print("BOT INICIOU")
+    enviar("🚀 TESTE DIRETO DO RAILWAY")
 
 if __name__ == "__main__":
     main()
