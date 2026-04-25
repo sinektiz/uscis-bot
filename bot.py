@@ -13,32 +13,41 @@ URL = "https://egov.uscis.gov/casestatus/mycasestatus.do"
 ARQUIVO_STATUS = "status.txt"
 
 def obter_status():
-    headers = {"User-Agent": "Mozilla/5.0"}
-    data = {"appReceiptNum": CASE_NUMBER}
+    session = requests.Session()
 
-    for tentativa in range(1, 6):
-        try:
-            response = requests.post(URL, data=data, headers=headers, timeout=20)
-            response.raise_for_status()
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://egov.uscis.gov/",
+        "Origin": "https://egov.uscis.gov"
+    }
 
-            soup = BeautifulSoup(response.text, "html.parser")
-            status_box = soup.find("div", class_="rows text-center")
+    # 1. Primeiro acesso (gera cookies)
+    session.get("https://egov.uscis.gov/", headers=headers)
 
-            if not status_box:
-                raise Exception("Erro HTML")
+    data = {
+        "appReceiptNum": CASE_NUMBER
+    }
 
-            status = status_box.text.strip()
+    # 2. Agora faz a consulta real
+    response = session.post(
+        "https://egov.uscis.gov/casestatus/mycasestatus.do",
+        headers=headers,
+        data=data,
+        timeout=20
+    )
 
-            if len(status) < 20:
-                raise Exception("Status inválido")
+    response.raise_for_status()
 
-            return status
+    soup = BeautifulSoup(response.text, "html.parser")
 
-        except Exception as e:
-            if tentativa == 5:
-                raise e
+    status_box = soup.find("div", class_="rows text-center")
 
-            time.sleep(2 ** tentativa + random.random())
+    if not status_box:
+        raise Exception("Não encontrou status")
+
+    return status_box.text.strip()
 
 def enviar_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
