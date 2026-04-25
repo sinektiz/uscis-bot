@@ -10,7 +10,10 @@ from playwright.sync_api import sync_playwright
 CASE_NUMBER = os.getenv("CASE_NUMBER")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+
 PROXY_SERVER = os.getenv("PROXY_SERVER")
+PROXY_USERNAME = os.getenv("PROXY_USERNAME")
+PROXY_PASSWORD = os.getenv("PROXY_PASSWORD")
 
 ARQUIVO_STATUS = "status.txt"
 
@@ -40,7 +43,7 @@ def enviar(msg):
 
 
 # =========================
-# SCRAPING COM PROXY
+# SCRAPING
 # =========================
 def obter_status():
     for tentativa in range(3):
@@ -49,14 +52,14 @@ def obter_status():
 
             with sync_playwright() as p:
                 browser = p.chromium.launch(
-    headless=True,
-    proxy={
-        "server": PROXY_SERVER,
-        "username": os.getenv("PROXY_USERNAME"),
-        "password": os.getenv("PROXY_PASSWORD"),
-    },
-    args=["--ignore-certificate-errors"]
-)
+                    headless=True,
+                    proxy={
+                        "server": PROXY_SERVER,
+                        "username": PROXY_USERNAME,
+                        "password": PROXY_PASSWORD,
+                    },
+                    args=["--ignore-certificate-errors"]
+                )
 
                 context = browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
@@ -66,15 +69,21 @@ def obter_status():
                 page = context.new_page()
 
                 log("Abrindo USCIS...")
-                page.goto("https://egov.uscis.gov/", timeout=60000)
 
-                page.wait_for_selector("input[name='appReceiptNum']", timeout=60000)
+                page.goto(
+                    "https://egov.uscis.gov/casestatus/mycasestatus.do",
+                    timeout=60000
+                )
+
+                # campo correto
+                page.wait_for_selector("#receipt_number", timeout=60000)
 
                 log("Digitando protocolo...")
-                page.fill("input[name='appReceiptNum']", CASE_NUMBER)
+                page.fill("#receipt_number", CASE_NUMBER)
 
-                page.click("input[type='submit']")
+                page.click("#caseStatusSearchBtn")
 
+                # espera resultado
                 page.wait_for_selector(".rows.text-center", timeout=60000)
 
                 status = page.inner_text(".rows.text-center")
@@ -121,7 +130,6 @@ def salvar_status(status):
 def main():
     log("=== INICIANDO BOT ===")
 
-    # valida config
     if not CASE_NUMBER or not TELEGRAM_TOKEN or not CHAT_ID:
         log("Variáveis obrigatórias não definidas")
         return
@@ -131,7 +139,7 @@ def main():
     try:
         status_atual = obter_status()
     except Exception as e:
-        enviar(f"⚠️ Erro USCIS:\n{e}")
+        enviar(f"⚠️ Erro ao consultar USCIS:\n{e}")
         return
 
     status_antigo = carregar_status()
