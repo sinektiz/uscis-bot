@@ -23,23 +23,25 @@ def enviar(msg):
 async def consultar():
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-blink-features=AutomationControlled",
-                "--disable-dev-shm-usage"
-            ],
-            proxy={
-                "server": PROXY_SERVER,
-                "username": PROXY_USERNAME,
-                "password": PROXY_PASSWORD
-            }
+    headless=True,
+    args=[
+        "--no-sandbox",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-dev-shm-usage",
+        "--ignore-certificate-errors"  # 👈 reforço extra
+    ],
+    proxy={
+        "server": PROXY_SERVER,
+        "username": PROXY_USERNAME,
+        "password": PROXY_PASSWORD
+    }
         )
 
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-            locale="en-US",
-            viewport={"width": 1366, "height": 768}
+    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+    locale="en-US",
+    viewport={"width": 1366, "height": 768},
+    ignore_https_errors=True   # 👈 ESSA LINHA RESOLVE
         )
 
         # stealth: remove webdriver flag
