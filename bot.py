@@ -12,42 +12,34 @@ CHAT_ID = os.getenv("CHAT_ID")
 URL = "https://egov.uscis.gov/casestatus/mycasestatus.do"
 ARQUIVO_STATUS = "status.txt"
 
+from playwright.sync_api import sync_playwright
+
 def obter_status():
-    session = requests.Session()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://egov.uscis.gov/",
-        "Origin": "https://egov.uscis.gov"
-    }
+        # abre página
+        page.goto("https://egov.uscis.gov/")
 
-    # 1. Primeiro acesso (gera cookies)
-    session.get("https://egov.uscis.gov/", headers=headers)
+        # espera o campo aparecer
+        page.wait_for_selector("input[name='appReceiptNum']")
 
-    data = {
-        "appReceiptNum": CASE_NUMBER
-    }
+        # digita o protocolo
+        page.fill("input[name='appReceiptNum']", CASE_NUMBER)
 
-    # 2. Agora faz a consulta real
-    response = session.post(
-        "https://egov.uscis.gov/casestatus/mycasestatus.do",
-        headers=headers,
-        data=data,
-        timeout=20
-    )
+        # clica no botão
+        page.click("input[type='submit']")
 
-    response.raise_for_status()
+        # espera o resultado carregar
+        page.wait_for_selector(".rows.text-center")
 
-    soup = BeautifulSoup(response.text, "html.parser")
+        # captura o texto
+        status = page.inner_text(".rows.text-center")
 
-    status_box = soup.find("div", class_="rows text-center")
+        browser.close()
 
-    if not status_box:
-        raise Exception("Não encontrou status")
-
-    return status_box.text.strip()
+        return status.strip()
 
 def enviar_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
