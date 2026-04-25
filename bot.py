@@ -49,16 +49,18 @@ def obter_status():
 
             with sync_playwright() as p:
                 browser = p.chromium.launch(
-                    headless=True,
-                    proxy={
-                        "server": PROXY_SERVER,
-                        "username": os.getenv("PROXY_USERNAME"),
-                        "password": os.getenv("PROXY_PASSWORD"),
-                    }
-                )
+    headless=True,
+    proxy={
+        "server": PROXY_SERVER,
+        "username": os.getenv("PROXY_USERNAME"),
+        "password": os.getenv("PROXY_PASSWORD"),
+    },
+    args=["--ignore-certificate-errors"]
+)
 
                 context = browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+                    ignore_https_errors=True
                 )
 
                 page = context.new_page()
