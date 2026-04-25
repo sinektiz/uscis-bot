@@ -14,27 +14,32 @@ ARQUIVO_STATUS = "status.txt"
 
 from playwright.sync_api import sync_playwright
 
+from playwright.sync_api import sync_playwright
+
 def obter_status():
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+        browser = p.chromium.launch(
+            headless=True,
+            proxy={
+                "server": PROXY_SERVER
+            }
+        )
 
-        # abre página
-        page.goto("https://egov.uscis.gov/")
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
+        )
 
-        # espera o campo aparecer
+        page = context.new_page()
+
+        page.goto("https://egov.uscis.gov/", timeout=60000)
+
         page.wait_for_selector("input[name='appReceiptNum']")
-
-        # digita o protocolo
         page.fill("input[name='appReceiptNum']", CASE_NUMBER)
 
-        # clica no botão
         page.click("input[type='submit']")
 
-        # espera o resultado carregar
-        page.wait_for_selector(".rows.text-center")
+        page.wait_for_selector(".rows.text-center", timeout=60000)
 
-        # captura o texto
         status = page.inner_text(".rows.text-center")
 
         browser.close()
